@@ -1,0 +1,107 @@
+Will the workout work out?
+========================================================
+
+This is an analysis and prediction of data measuring various aspects of subjects performing workouts properly and in bad form.
+
+The quality of the prediction seems to suggest that it is more than possible to automate parts of workout feedback,
+thus giving personal trainers a "run for their money".
+
+The analysis was performed as follows:
+
+All of the required libraries were loaded.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+```
+
+We are using Caret for ease of analysis, and random forests for prediction.
+
+We then set the random seed for reproducibility
+
+```{r results='hide', message=FALSE, warning=FALSE}
+set.seed(12345)
+```
+
+The training data was split into two parts (train and test), holding 30% of the training data reserved for later testing (we shall refer to these as train and test).
+
+```{r results='hide', message=FALSE, warning=FALSE}
+train <- read.csv("C:/kaggle/practical machine learning/train.csv")
+indexToSplit<-createDataPartition(train$classe,p=0.7,list=FALSE)
+test<-train[-indexToSplit,]
+train<-train[indexToSplit,]
+```
+
+The original test data (the data on which we needed to predict) was also reserved (we shall refer to it as testFinal).
+
+```{r results='hide', message=FALSE, warning=FALSE}
+testFinal <- read.csv("C:/kaggle/practical machine learning/test.csv")
+```
+
+Then we eliminate variables with low variability.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+zeroVars<-nearZeroVar(train)
+
+train<-train[,-zeroVars]
+test<-test[,-zeroVars]
+testFinal<-testFinal[,-zeroVars]
+```
+
+
+We also remove the first six variables from the data, as they include information as the workout number, exact time of the measurement or subject name which are obviously irrelevant and counterproductive.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+train<-train[,7:106]
+test<-test[,7:106]
+testFinal<-testFinal[,7:106]
+```
+
+We then impute the missing values.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+preObj<-preProcess(train[,-100],method="knnImpute")
+guess<-predict(preObj,train[,-100])
+train[,1:99]<-guess
+
+guess2<-predict(preObj,test[,-100])
+test[,1:99]<-guess2
+
+guess3<-predict(preObj,testFinal[,-100])
+testFinal[,1:99]<-guess3
+```
+
+After this, we can use the cleaned up data to remove unnecessary correlations.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+corr<-cor(train[,-100])
+redundantCorrelations<-findCorrelation(corr)
+
+
+train<-train[,-redundantCorrelations]
+test<-test[,-redundantCorrelations]
+testFinal<-testFinal[,-redundantCorrelations]
+```
+
+We then fit a random forest to the data.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+fit<-randomForest(classe~.,data=train,ntree=500)
+```
+
+Next, we use the test data we held in reserve to estimate the out-of-sample error/accuracy.
+
+```{r message=FALSE, warning=FALSE}
+predictions<-predict(fit,test)
+confMatrix<-confusionMatrix(predictions,test$classe)
+confMatrix
+```
+
+This seems to show that the accuracy should be on the order of 98.52% - 99% with a 95% confidence rate.
+This, of course, is very good.
+
+Due to this, we make the required prediction confidently and in good mood.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+predictionsFinal<-predict(fit,testFinal)
+```
